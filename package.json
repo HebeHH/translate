@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.29.0",
+    "@cartesia/cartesia-js": "^1.1.0",
     "@headlessui/react": "^2.1.10",
     "@heroicons/react": "^2.1.5",
     "assemblyai": "^4.7.1",

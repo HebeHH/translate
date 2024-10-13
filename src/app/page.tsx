@@ -5,58 +5,118 @@ import React, { useState } from "react";
 import LanguageSelector from "./components/LanguageSelector";
 import AudioRecorder from "./components/AudioRecorder";
 import { transcribeAudio } from "./utils/transcription";
+import { translateText } from "./utils/translation";
+import { textToSpeech, playAudio } from "./utils/tts";
+
+type Message = {
+    original: string;
+    translated: string;
+    fromLang: string;
+    toLang: string;
+};
 
 export default function Home() {
     const [languageA, setLanguageA] = useState({ id: "en", name: "English" });
     const [languageB, setLanguageB] = useState({ id: "es", name: "Spanish" });
-    const [transcription, setTranscription] = useState("");
+    const [messages, setMessages] = useState<Message[]>([]);
     const [error, setError] = useState("");
+    const [isProcessing, setIsProcessing] = useState(false);
 
-    const handleRecordingComplete = async (blob: Blob) => {
+    const handleRecordingComplete = async (blob: Blob, isUserA: boolean) => {
+        setIsProcessing(true);
+        setError("");
         try {
-            setError("");
-            const text = await transcribeAudio(blob, languageA.id);
-            setTranscription(text);
-            console.log("Transcription:", text);
-            // TODO: Implement translation and text-to-speech here
+            const fromLang = isUserA ? languageA : languageB;
+            const toLang = isUserA ? languageB : languageA;
+
+            // Transcribe
+            const transcription = await transcribeAudio(blob, fromLang.id);
+
+            // Translate
+            const translation = await translateText(
+                transcription,
+                fromLang.name,
+                toLang.name
+            );
+
+            // Update messages
+            const newMessage: Message = {
+                original: transcription,
+                translated: translation,
+                fromLang: fromLang.id,
+                toLang: toLang.id,
+            };
+            setMessages((prevMessages) => [...prevMessages, newMessage]);
+
+            // Text-to-speech
+            const audioBuffer = await textToSpeech(translation, toLang.id);
+            playAudio(audioBuffer);
         } catch (error) {
             console.error("Error processing audio:", error);
-            setError("Failed to transcribe audio. Please try again.");
+            setError("An error occurred. Please try again.");
+        } finally {
+            setIsProcessing(false);
         }
     };
 
     return (
-        <main className="flex min-h-screen flex-col items-center justify-center p-24">
-            <h1 className="text-4xl font-bold mb-8">Translation App</h1>
-            <div className="flex space-x-8">
-                <div>
-                    <h2 className="text-2xl mb-4">User A</h2>
-                    <LanguageSelector
-                        selected={languageA}
-                        onChange={setLanguageA}
-                    />
+        <main className="flex flex-col min-h-screen p-8">
+            <div className="flex justify-center space-x-8 mb-8">
+                <LanguageSelector
+                    selected={languageA}
+                    onChange={setLanguageA}
+                />
+                <LanguageSelector
+                    selected={languageB}
+                    onChange={setLanguageB}
+                />
+            </div>
+            <div className="flex flex-1">
+                <div className="w-1/2 p-4 border-r">
+                    <h2 className="text-2xl mb-4">{languageA.name}</h2>
+                    <div className="h-[calc(100vh-300px)] overflow-y-auto mb-4">
+                        {messages.map((msg, index) => (
+                            <div key={index} className="mb-2">
+                                {msg.fromLang === languageA.id ? (
+                                    <p className="font-bold">{msg.original}</p>
+                                ) : (
+                                    <p className="text-gray-600">
+                                        {msg.translated}
+                                    </p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
                     <AudioRecorder
-                        onRecordingComplete={handleRecordingComplete}
+                        onRecordingComplete={(blob) =>
+                            handleRecordingComplete(blob, true)
+                        }
                     />
                 </div>
-                <div>
-                    <h2 className="text-2xl mb-4">User B</h2>
-                    <LanguageSelector
-                        selected={languageB}
-                        onChange={setLanguageB}
-                    />
+                <div className="w-1/2 p-4">
+                    <h2 className="text-2xl mb-4">{languageB.name}</h2>
+                    <div className="h-[calc(100vh-300px)] overflow-y-auto mb-4">
+                        {messages.map((msg, index) => (
+                            <div key={index} className="mb-2">
+                                {msg.fromLang === languageB.id ? (
+                                    <p className="font-bold">{msg.original}</p>
+                                ) : (
+                                    <p className="text-gray-600">
+                                        {msg.translated}
+                                    </p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
                     <AudioRecorder
-                        onRecordingComplete={handleRecordingComplete}
+                        onRecordingComplete={(blob) =>
+                            handleRecordingComplete(blob, false)
+                        }
                     />
                 </div>
             </div>
-            {error && <p className="text-red-500 mt-4">{error}</p>}
-            {transcription && (
-                <div className="mt-8">
-                    <h3 className="text-xl font-bold mb-2">Transcription:</h3>
-                    <p className="bg-gray-100 p-4 rounded">{transcription}</p>
-                </div>
-            )}
+            {isProcessing && <p className="text-center mt-4">Processing...</p>}
+            {error && <p className="text-red-500 text-center mt-4">{error}</p>}
         </main>
     );
 }
