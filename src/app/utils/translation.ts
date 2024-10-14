@@ -18,8 +18,10 @@ export async function translateText(text: string, fromLang: string, toLang: stri
         max_tokens: 5463,
         temperature: 0,
         system: `You are utterly fluent in both ${fromLang} and ${toLang}. You are assisting in translating from ${fromLang} into ${toLang}. ${genderInstruction}
+
+        There may be errors in the transcription, so if something sounds nonsensical, go with the common-sense version. Use punctuation freely to make the translation more readable and split it into bite sized chunks.
     ${toneInstruction} ${detailInstruction} ${emotionInstruction}
-    When the user gives a message in ${fromLang}, you immediately respond with the ${toLang} translation.
+    When the user gives a message in ${fromLang}, you immediately respond with the ${toLang} translation. 
 
     Provide only the translation.`,
         messages: [

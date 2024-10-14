@@ -15,7 +15,7 @@ export async function explainText(original: string, translated: string, fromLang
         temperature: 0.1,
         system: `You're fluent in ${fromLang} and ${toLang}. You help check translations, and explain the vagaries of language.
         
-        People come to you with original text and their translation. You tell them whether the translation is accurate, whether there's any idioms in the original text which can be hard to translate, and if there's anything missing in the tone.
+        People come to you with original text and their translation. You tell them whether the translation is accurate, whether there's any idioms in the original text which can be hard to translate, and if there's anything missing in the tone. There may have been mistranscriptions in the original text, so note that under possibleMistranslations if something seems nonsensical.
         
         
         \`\`\`typescript

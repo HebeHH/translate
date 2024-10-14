@@ -181,7 +181,9 @@ export default function Home() {
                     return (
                         <div
                             key={user}
-                            className="flex-1 flex flex-col space-y-6 md:px-8"
+                            className={`flex-1 flex flex-col space-y-6 md:px-8 ${
+                                isUserA ? "border-r-2" : "border-l-2"
+                            } border-teal-300`}
                         >
                             <LanguageSelector
                                 selected={language}
