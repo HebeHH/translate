@@ -24,7 +24,7 @@ export default function GenderSelector({
                 <FaMale className="inline-block mr-2" /> Male
             </button>
             <button
-                className={`flex-1 px-4 py-2 rounded ${
+                className={`flex-1  px-4 py-2 rounded ${
                     selected === "female"
                         ? "bg-pink-500 text-white"
                         : "bg-violet-700 text-gray-300"

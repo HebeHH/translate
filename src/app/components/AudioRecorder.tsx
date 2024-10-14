@@ -21,7 +21,7 @@ export default function AudioRecorder({
             onClick={onClick}
             disabled={isDisabled}
             className={`w-16 h-16 rounded-full flex items-center justify-center ${
-                isRecording ? "bg-red-500" : "bg-green-500"
+                isRecording ? "bg-red-500" : "bg-teal-400"
             } ${
                 isDisabled
                     ? "opacity-50 cursor-not-allowed"
@@ -29,11 +29,11 @@ export default function AudioRecorder({
             } transition-all duration-300 ease-in-out`}
         >
             {isLoading ? (
-                <ImSpinner8 className="w-8 h-8 animate-spin text-white" />
+                <ImSpinner8 className="w-8 h-8 animate-spin text-indigo-600" />
             ) : isRecording ? (
                 <FaStop className="w-8 h-8 text-white" />
             ) : (
-                <FaMicrophone className="w-8 h-8 text-white" />
+                <FaMicrophone className="w-8 h-8 text-indigo-700" />
             )}
         </button>
     );

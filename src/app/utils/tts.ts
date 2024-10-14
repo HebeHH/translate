@@ -21,7 +21,7 @@ export async function textToSpeech(text: string, language: string, voiceId: stri
             id: voiceId,
             __experimental_controls: {
                 speed: options.speed < 0 ? "slowest" : options.speed > 0 ? "fastest" : "normal",
-                emotion: options.emotion < 0 ? ["positivity:high"] : options.emotion > 0 ? ["sadness:high"] : [],
+                emotion: options.emotion < 0 ? ["positivity:high", "sadness:low"] : options.emotion > 0 ? ["sadness:high", "positivity:low"] : [],
             },
         },
         language: language,

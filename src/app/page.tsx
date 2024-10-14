@@ -147,7 +147,9 @@ export default function Home() {
                 voices[fromLang].name,
                 voices[toLang].name,
                 fromOptions,
-                toOptions
+                toOptions,
+                (isUserA ? genderA : genderB) as "male" | "female",
+                (isUserA ? genderB : genderA) as "male" | "female"
             );
 
             // Update messages
@@ -165,7 +167,7 @@ export default function Home() {
                 translation,
                 toLang,
                 voiceId,
-                toOptions
+                fromOptions
             );
             playAudio(audioBuffer);
         } catch (error) {
@@ -206,7 +208,7 @@ export default function Home() {
                             />
                             <div className="flex-1 bg-violet-800 rounded-lg p-4 overflow-y-auto">
                                 {messages.map((msg, index) => (
-                                    <div key={index} className="mb-2">
+                                    <div key={index} className="mb-2 rounded ">
                                         {msg.fromLang === language ? (
                                             <p className="font-bold">
                                                 {msg.original}
