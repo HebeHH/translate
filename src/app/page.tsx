@@ -10,20 +10,8 @@ import { transcribeAudio } from "./utils/transcription";
 import { translateText } from "./utils/translation";
 import { textToSpeech, playAudio } from "./utils/tts";
 import { voices } from "./data/voices";
-
-type Message = {
-    original: string;
-    translated: string;
-    fromLang: string;
-    toLang: string;
-};
-
-type Options = {
-    tone: number;
-    detail: number;
-    speed: number;
-    emotion: number;
-};
+import { Message, Options } from "./utils/types";
+import { MessageCard } from "./components/MessageCard";
 
 export default function Home() {
     const [languageA, setLanguageA] = useState("en");
@@ -207,18 +195,12 @@ export default function Home() {
                                 className="text-2xl font-bold"
                             />
                             <div className="flex-1 bg-violet-800 rounded-lg p-4 overflow-y-auto">
-                                {messages.map((msg, index) => (
-                                    <div key={index} className="mb-2 rounded ">
-                                        {msg.fromLang === language ? (
-                                            <p className="font-bold">
-                                                {msg.original}
-                                            </p>
-                                        ) : (
-                                            <p className="text-gray-300">
-                                                {msg.translated}
-                                            </p>
-                                        )}
-                                    </div>
+                                {messages.map((msg: Message, index: number) => (
+                                    <MessageCard
+                                        key={index}
+                                        message={msg}
+                                        language={language}
+                                    />
                                 ))}
                             </div>
                             <GenderSelector
