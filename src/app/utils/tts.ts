@@ -5,7 +5,7 @@ const cartesia = new Cartesia({
     apiKey: process.env.NEXT_PUBLIC_CARTESIA_API_KEY,
 });
 
-export async function textToSpeech(text: string, language: string): Promise<ArrayBuffer> {
+export async function textToSpeech(text: string, language: string, voiceId: string, options: any): Promise<ArrayBuffer> {
     const websocket = cartesia.tts.websocket({
         container: "raw",
         encoding: "pcm_f32le",
@@ -18,7 +18,11 @@ export async function textToSpeech(text: string, language: string): Promise<Arra
         model_id: "sonic-multilingual",
         voice: {
             mode: "id",
-            id: "aec77e3e-ff46-41ab-90b8-3d2494ca4733",
+            id: voiceId,
+            __experimental_controls: {
+                speed: options.speed < 0 ? "slowest" : options.speed > 0 ? "fastest" : "normal",
+                emotion: options.emotion < 0 ? ["positivity:high"] : options.emotion > 0 ? ["sadness:high"] : [],
+            },
         },
         language: language,
         transcript: text
