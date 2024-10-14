@@ -1,7 +1,6 @@
-// app/page.tsx
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import LanguageSelector from "./components/LanguageSelector";
 import GenderSelector from "./components/GenderSelector";
 import AudioRecorder from "./components/AudioRecorder";
@@ -13,7 +12,20 @@ import { voices } from "./data/voices";
 import { Message, Options } from "./utils/types";
 import { MessageCard } from "./components/MessageCard";
 
+type ApiKeys = {
+    ASSEMBLYAI_API_KEY: string;
+    CARTESIA_API_KEY: string;
+    ANTHROPIC_API_KEY: string;
+};
+
 export default function Home() {
+    const [apiKeys, setApiKeys] = useState<ApiKeys>({
+        ASSEMBLYAI_API_KEY: "",
+        CARTESIA_API_KEY: "",
+        ANTHROPIC_API_KEY: "",
+    });
+    const [showMainContent, setShowMainContent] = useState(false);
+
     const [languageA, setLanguageA] = useState("en");
     const [languageB, setLanguageB] = useState("fr");
     const [genderA, setGenderA] = useState("male");
@@ -42,6 +54,17 @@ export default function Home() {
     const mediaRecorderB = useRef<MediaRecorder | null>(null);
     const audioChunksA = useRef<Blob[]>([]);
     const audioChunksB = useRef<Blob[]>([]);
+
+    useEffect(() => {
+        const allKeysProvided = Object.values(apiKeys).every(
+            (key) => key !== ""
+        );
+        setShowMainContent(allKeysProvided);
+    }, [apiKeys]);
+
+    const handleApiKeyChange = (key: keyof ApiKeys, value: string) => {
+        setApiKeys((prev) => ({ ...prev, [key]: value }));
+    };
 
     const getVoiceId = (language: string, gender: string) => {
         const voiceOption = voices[language].voiceOptions.find(
@@ -126,7 +149,11 @@ export default function Home() {
             const fromOptions = isUserA ? optionsA : optionsB;
 
             // Transcribe
-            const transcription = await transcribeAudio(blob, fromLang);
+            const transcription = await transcribeAudio(
+                blob,
+                fromLang,
+                apiKeys.ASSEMBLYAI_API_KEY
+            );
 
             // Translate
             const translation = await translateText(
@@ -135,7 +162,8 @@ export default function Home() {
                 voices[toLang].name,
                 fromOptions,
                 (isUserA ? genderA : genderB) as "male" | "female",
-                (isUserA ? genderB : genderA) as "male" | "female"
+                (isUserA ? genderB : genderA) as "male" | "female",
+                apiKeys.ANTHROPIC_API_KEY
             );
 
             // Update messages
@@ -153,7 +181,8 @@ export default function Home() {
                 translation,
                 toLang,
                 voiceId,
-                fromOptions
+                fromOptions,
+                apiKeys.CARTESIA_API_KEY
             );
             playAudio(audioBuffer);
         } catch (error) {
@@ -165,6 +194,32 @@ export default function Home() {
             setIsLoadingB(false);
         }
     };
+
+    if (!showMainContent) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-violet-900 text-white p-4">
+                <h1 className="text-3xl font-bold mb-8">Enter API Keys</h1>
+                {Object.keys(apiKeys).map((key) => (
+                    <div key={key} className="mb-4 w-full max-w-md">
+                        <label className="block text-sm font-medium mb-2">
+                            {key}:
+                        </label>
+                        <input
+                            type="password"
+                            value={apiKeys[key as keyof ApiKeys]}
+                            onChange={(e) =>
+                                handleApiKeyChange(
+                                    key as keyof ApiKeys,
+                                    e.target.value
+                                )
+                            }
+                            className="w-full px-3 py-2 bg-violet-800 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-300"
+                        />
+                    </div>
+                ))}
+            </div>
+        );
+    }
 
     return (
         <main className="flex flex-col min-h-screen bg-violet-900 text-white p-4 md:p-8">

@@ -1,11 +1,12 @@
 // app/utils/transcription.ts
 import { AssemblyAI } from 'assemblyai';
 
-const client = new AssemblyAI({
-    apiKey: process.env.NEXT_PUBLIC_ASSEMBLYAI_API_KEY || '',
-});
 
-export async function transcribeAudio(audioBlob: Blob, languageCode: string): Promise<string> {
+
+export async function transcribeAudio(audioBlob: Blob, languageCode: string, ASSEMBLYAI_API_KEY: string): Promise<string> {
+    const client = new AssemblyAI({
+        apiKey: ASSEMBLYAI_API_KEY,
+    });
     try {
         const audioFile = new File([audioBlob], 'audio.wav', { type: 'audio/wav' });
 
