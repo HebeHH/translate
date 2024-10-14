@@ -1,5 +1,6 @@
 // app/components/GenderSelector.tsx
 import React from "react";
+import { FaMale, FaFemale } from "react-icons/fa";
 
 interface GenderSelectorProps {
     selected: string;
@@ -11,26 +12,26 @@ export default function GenderSelector({
     onChange,
 }: GenderSelectorProps) {
     return (
-        <div className="flex space-x-2">
+        <div className="flex space-x-4">
             <button
-                className={`px-4 py-2 rounded ${
+                className={`flex-1 px-4 py-2 rounded ${
                     selected === "male"
                         ? "bg-blue-500 text-white"
-                        : "bg-gray-200"
+                        : "bg-violet-700 text-gray-300"
                 }`}
                 onClick={() => onChange("male")}
             >
-                Male
+                <FaMale className="inline-block mr-2" /> Male
             </button>
             <button
-                className={`px-4 py-2 rounded ${
+                className={`flex-1 px-4 py-2 rounded ${
                     selected === "female"
                         ? "bg-pink-500 text-white"
-                        : "bg-gray-200"
+                        : "bg-violet-700 text-gray-300"
                 }`}
                 onClick={() => onChange("female")}
             >
-                Female
+                <FaFemale className="inline-block mr-2" /> Female
             </button>
         </div>
     );

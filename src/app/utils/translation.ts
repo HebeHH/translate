@@ -7,9 +7,9 @@ const anthropic = new Anthropic({
 });
 
 export async function translateText(text: string, fromLang: string, toLang: string, fromOptions: any, toOptions: any): Promise<string> {
-    const toneInstruction = toOptions.tone < 0 ? "Use a more casual tone." : toOptions.tone > 0 ? "Use a more respectful tone." : "";
-    const detailInstruction = toOptions.detail < 0 ? "Be more concise." : toOptions.detail > 0 ? "Include more details." : "";
-    const emotionInstruction = toOptions.emotion < 0 ? "Express more positive emotions." : toOptions.emotion > 0 ? "Express more negative emotions." : "";
+    const toneInstruction = fromOptions.tone < 0 ? "Be casual - this is a friendly conversation" : fromOptions.tone > 0 ? "Be very respectful. The speaker is talking to somebody they look up to, like a professor or a mother-in-law. Ensure that your translation conveys their sincere politeness and avoids misunderstandings." : "";
+    const detailInstruction = fromOptions.detail < 0 ? "Be concise." : fromOptions.detail > 0 ? "Convey the meaning fully, using as many words as needed to get the general feeling across." : "";
+    const emotionInstruction = fromOptions.emotion < 0 ? "The speaker is feeling warm and positive." : fromOptions.emotion > 0 ? "The speaker is feeling negative and upset." : "";
 
     const msg = await anthropic.messages.create({
         model: "claude-3-5-sonnet-20240620",

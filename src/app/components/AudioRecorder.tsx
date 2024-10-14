@@ -1,64 +1,40 @@
 // app/components/AudioRecorder.tsx
-import React, { useState, useRef } from "react";
+import React from "react";
+import { FaMicrophone, FaStop } from "react-icons/fa";
+import { ImSpinner8 } from "react-icons/im";
 
 interface AudioRecorderProps {
-    onRecordingComplete: (blob: Blob) => void;
+    isRecording: boolean;
+    isDisabled: boolean;
+    isLoading: boolean;
+    onClick: () => void;
 }
 
 export default function AudioRecorder({
-    onRecordingComplete,
+    isRecording,
+    isDisabled,
+    isLoading,
+    onClick,
 }: AudioRecorderProps) {
-    const [isRecording, setIsRecording] = useState(false);
-    const mediaRecorder = useRef<MediaRecorder | null>(null);
-    const audioChunks = useRef<Blob[]>([]);
-
-    const startRecording = async () => {
-        audioChunks.current = [];
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: true,
-            });
-            mediaRecorder.current = new MediaRecorder(stream);
-            mediaRecorder.current.ondataavailable = (event) => {
-                audioChunks.current.push(event.data);
-            };
-            mediaRecorder.current.onstop = () => {
-                const audioBlob = new Blob(audioChunks.current, {
-                    type: "audio/wav",
-                });
-                onRecordingComplete(audioBlob);
-            };
-            mediaRecorder.current.start();
-            setIsRecording(true);
-        } catch (error) {
-            console.error("Error accessing microphone:", error);
-        }
-    };
-
-    const stopRecording = () => {
-        if (mediaRecorder.current) {
-            mediaRecorder.current.stop();
-            setIsRecording(false);
-        }
-    };
-
     return (
-        <div className="mt-4">
-            {!isRecording ? (
-                <button
-                    onClick={startRecording}
-                    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                >
-                    Start Recording
-                </button>
+        <button
+            onClick={onClick}
+            disabled={isDisabled}
+            className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                isRecording ? "bg-red-500" : "bg-green-500"
+            } ${
+                isDisabled
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:bg-opacity-80"
+            } transition-all duration-300 ease-in-out`}
+        >
+            {isLoading ? (
+                <ImSpinner8 className="w-8 h-8 animate-spin text-white" />
+            ) : isRecording ? (
+                <FaStop className="w-8 h-8 text-white" />
             ) : (
-                <button
-                    onClick={stopRecording}
-                    className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-                >
-                    Stop Recording
-                </button>
+                <FaMicrophone className="w-8 h-8 text-white" />
             )}
-        </div>
+        </button>
     );
 }

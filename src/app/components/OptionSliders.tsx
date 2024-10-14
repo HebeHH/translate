@@ -24,25 +24,41 @@ interface OptionSlidersProps {
 const Slider: React.FC<{
     value: number;
     onChange: (value: number) => void;
-    min: number;
-    max: number;
-    step: number;
-}> = ({ value, onChange, min, max, step }) => {
+    leftIcon: React.ElementType;
+    rightIcon: React.ElementType;
+}> = ({ value, onChange, leftIcon: LeftIcon, rightIcon: RightIcon }) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newValue = parseFloat(e.target.value);
+        onChange(Math.round(newValue)); // Round to nearest integer (-1, 0, or 1)
+    };
+
     return (
-        <div className="relative w-full">
-            <input
-                type="range"
-                min={min}
-                max={max}
-                step={step}
-                value={value}
-                onChange={(e) => onChange(parseFloat(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <div
-                className="absolute top-0 left-0 h-2 bg-blue-500 rounded-full pointer-events-none"
-                style={{ width: `${((value - min) / (max - min)) * 100}%` }}
-            ></div>
+        <div className="flex items-center space-x-4">
+            <LeftIcon className="text-gray-300 w-6 h-6" />
+            <div className="flex-grow relative">
+                <input
+                    type="range"
+                    min="-1"
+                    max="1"
+                    step="1"
+                    value={value}
+                    onChange={handleChange}
+                    className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+                />
+                <div className="absolute top-0 left-0 right-0 flex justify-between px-1 -mt-2 pointer-events-none">
+                    {[-1, 0, 1].map((position) => (
+                        <div
+                            key={position}
+                            className={`w-3 h-3 rounded-full ${
+                                value === position
+                                    ? "bg-blue-500"
+                                    : "bg-gray-400"
+                            }`}
+                        />
+                    ))}
+                </div>
+            </div>
+            <RightIcon className="text-gray-300 w-6 h-6" />
         </div>
     );
 };
@@ -79,21 +95,15 @@ export default function OptionSliders({
     ];
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 px-60">
             {sliderOptions.map((option) => (
-                <div key={option.key} className="flex items-center space-x-4">
-                    <option.leftIcon className="text-gray-500 w-6 h-6" />
-                    <div className="flex-grow">
-                        <Slider
-                            value={options[option.key as keyof typeof options]}
-                            onChange={(value) => onChange(option.key, value)}
-                            min={-1}
-                            max={1}
-                            step={0.1}
-                        />
-                    </div>
-                    <option.rightIcon className="text-gray-500 w-6 h-6" />
-                </div>
+                <Slider
+                    key={option.key}
+                    value={options[option.key as keyof typeof options]}
+                    onChange={(value) => onChange(option.key, value)}
+                    leftIcon={option.leftIcon}
+                    rightIcon={option.rightIcon}
+                />
             ))}
         </div>
     );
