@@ -255,6 +255,9 @@ export default function Home() {
                                         key={index}
                                         message={msg}
                                         language={language}
+                                        ANTHROPIC_API_KEY={
+                                            apiKeys.ANTHROPIC_API_KEY
+                                        }
                                     />
                                 ))}
                             </div>

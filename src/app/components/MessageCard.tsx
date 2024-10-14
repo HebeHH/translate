@@ -6,11 +6,13 @@ import { explainText } from "../utils/explanation";
 interface MessageCardProps {
     message: Message;
     language: string;
+    ANTHROPIC_API_KEY: string;
 }
 
 export const MessageCard: React.FC<MessageCardProps> = ({
     message,
     language,
+    ANTHROPIC_API_KEY,
 }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [explanation, setExplanation] = useState<TranslationInfo | null>(
@@ -25,7 +27,8 @@ export const MessageCard: React.FC<MessageCardProps> = ({
             message.original,
             message.translated,
             message.fromLang,
-            message.toLang
+            message.toLang,
+            ANTHROPIC_API_KEY
         );
         setExplanation(result);
         setIsLoading(false);

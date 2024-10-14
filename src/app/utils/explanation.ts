@@ -1,14 +1,16 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { TranslationInfo } from "../utils/types";
 
-const anthropic = new Anthropic({
-    apiKey: process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY,
-    dangerouslyAllowBrowser: true
-});
+
+export async function explainText(original: string, translated: string, fromLang: string, toLang: string, ANTHROPIC_API_KEY: string): Promise<TranslationInfo> {
 
 
+    const anthropic = new Anthropic({
+        apiKey: ANTHROPIC_API_KEY,
+        dangerouslyAllowBrowser: true
+    });
 
-export async function explainText(original: string, translated: string, fromLang: string, toLang: string) {
+
     const msg = await anthropic.messages.create({
         model: "claude-3-5-sonnet-20240620",
         max_tokens: 5463,
