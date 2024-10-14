@@ -2,9 +2,6 @@
 import Cartesia from "@cartesia/cartesia-js";
 import { Options } from "./types";
 
-const cartesia = new Cartesia({
-    apiKey: process.env.NEXT_PUBLIC_CARTESIA_API_KEY,
-});
 
 export async function textToSpeech(text: string, language: string, voiceId: string, options: Options, CARTESIA_API_KEY: string): Promise<ArrayBuffer> {
 
