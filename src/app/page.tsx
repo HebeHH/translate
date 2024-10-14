@@ -124,7 +124,6 @@ export default function Home() {
             const toLang = isUserA ? languageB : languageA;
             const toGender = isUserA ? genderA : genderB;
             const fromOptions = isUserA ? optionsA : optionsB;
-            const toOptions = isUserA ? optionsB : optionsA;
 
             // Transcribe
             const transcription = await transcribeAudio(blob, fromLang);
@@ -135,7 +134,6 @@ export default function Home() {
                 voices[fromLang].name,
                 voices[toLang].name,
                 fromOptions,
-                toOptions,
                 (isUserA ? genderA : genderB) as "male" | "female",
                 (isUserA ? genderB : genderA) as "male" | "female"
             );

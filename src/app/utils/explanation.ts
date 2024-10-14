@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { SegmentExplainer, TranslationInfo } from "../utils/types";
+import { TranslationInfo } from "../utils/types";
 
 const anthropic = new Anthropic({
     apiKey: process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY,

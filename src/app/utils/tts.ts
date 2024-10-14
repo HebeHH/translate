@@ -1,11 +1,12 @@
 // app/utils/tts.ts
 import Cartesia from "@cartesia/cartesia-js";
+import { Options } from "./types";
 
 const cartesia = new Cartesia({
     apiKey: process.env.NEXT_PUBLIC_CARTESIA_API_KEY,
 });
 
-export async function textToSpeech(text: string, language: string, voiceId: string, options: any): Promise<ArrayBuffer> {
+export async function textToSpeech(text: string, language: string, voiceId: string, options: Options): Promise<ArrayBuffer> {
     const websocket = cartesia.tts.websocket({
         container: "raw",
         encoding: "pcm_f32le",
@@ -89,11 +90,11 @@ export function playAudio(audioBuffer: ArrayBuffer) {
 }
 
 // Helper function to convert ArrayBuffer to Float32Array
-function arrayBufferToFloat32Array(buffer: ArrayBuffer): Float32Array {
-    const view = new DataView(buffer);
-    const floatArray = new Float32Array(view.byteLength / 4);
-    for (let i = 0; i < floatArray.length; i++) {
-        floatArray[i] = view.getFloat32(i * 4, true);  // true for little-endian
-    }
-    return floatArray;
-}
+// function arrayBufferToFloat32Array(buffer: ArrayBuffer): Float32Array {
+//     const view = new DataView(buffer);
+//     const floatArray = new Float32Array(view.byteLength / 4);
+//     for (let i = 0; i < floatArray.length; i++) {
+//         floatArray[i] = view.getFloat32(i * 4, true);  // true for little-endian
+//     }
+//     return floatArray;
+// }
