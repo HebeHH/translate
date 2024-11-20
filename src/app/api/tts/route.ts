@@ -1,5 +1,5 @@
 // app/api/tts/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { CartesiaTTSProvider } from './cartesia';
 import { TTSError, TTSOptions } from '@/app/lib/providers/tts';
 import { validateApiRequest } from '@/app/lib/rate-limit';
@@ -36,8 +36,8 @@ export async function POST(request: NextRequest) {
         const contentType = request.headers.get('content-type');
         if (!contentType?.includes('application/json')) {
             console.error('Invalid content type:', contentType);
-            return NextResponse.json(
-                { error: 'Request must be application/json' },
+            return new Response(
+                JSON.stringify({ error: 'Request must be application/json' }),
                 { status: 400 }
             );
         }
@@ -60,46 +60,56 @@ export async function POST(request: NextRequest) {
 
         // Validate required fields
         if (!text || !language || !voiceId) {
-            return NextResponse.json(
-                { error: 'Missing required fields: text, language, or voiceId' },
+            return new Response(
+                JSON.stringify({ error: 'Missing required fields: text, language, or voiceId' }),
                 { status: 400 }
             );
         }
 
-        // Call the provider
-        const result = await getProvider().synthesize(text, language, voiceId, options);
+        // Get the provider and metadata
+        const ttsProvider = getProvider();
+        const metadata = ttsProvider.getMetadata(options);
 
-        console.log('TTS successful:', {
-            format: result.format,
-            sampleRate: result.sampleRate,
-            bufferSize: result.audioBuffer.byteLength
-        });
+        // Create a TransformStream to handle the audio data
+        const { readable, writable } = new TransformStream();
+        const writer = writable.getWriter();
 
-        // Return the audio data as an array buffer
-        return new Response(result.audioBuffer, {
+        // Start the TTS process
+        (async () => {
+            try {
+                const generator = ttsProvider.synthesize(text, language, voiceId, options);
+                for await (const chunk of generator) {
+                    await writer.write(chunk);
+                }
+                await writer.close();
+            } catch (error) {
+                console.error('TTS generator error:', error);
+                await writer.abort(error);
+            }
+        })();
+
+        // Return the stream immediately
+        return new Response(readable, {
             headers: {
                 'Content-Type': 'application/octet-stream',
-                'X-Sample-Rate': result.sampleRate.toString(),
-                'X-Audio-Format': result.format
+                'Transfer-Encoding': 'chunked',
+                'X-Sample-Rate': metadata.sampleRate.toString(),
+                'X-Audio-Format': metadata.format
             }
         });
     } catch (error) {
         console.error('TTS error:', error);
 
-        if (error instanceof TTSError) {
-            return NextResponse.json(
-                {
-                    error: error.message,
-                    code: error.code,
-                    provider: error.provider
-                },
-                { status: 400 }
-            );
-        }
-
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
+        return new Response(
+            JSON.stringify({
+                error: error instanceof TTSError ? error.message : 'Internal server error',
+                code: error instanceof TTSError ? error.code : 'INTERNAL_ERROR',
+                provider: error instanceof TTSError ? error.provider : undefined
+            }),
+            {
+                status: error instanceof TTSError ? 400 : 500,
+                headers: { 'Content-Type': 'application/json' }
+            }
         );
     }
 }

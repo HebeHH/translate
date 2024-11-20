@@ -8,7 +8,11 @@ import OptionSliders from "./components/OptionSliders";
 // import { transcribeAudio } from "./utils/transcription";
 import { translateText } from "./utils/translation";
 import { textToSpeech, playAudio } from "./utils/tts";
-import { playAudioBuffer } from "@/app/lib/audio";
+import {
+    AudioStreamPlayer,
+    createAudioStream,
+    processAudioChunks,
+} from "@/app/lib/audio";
 import { voices } from "./data/voices";
 import { Message, Options } from "./utils/types";
 import { MessageCard } from "./components/MessageCard";
@@ -57,6 +61,7 @@ export default function Home() {
     const mediaRecorderB = useRef<MediaRecorder | null>(null);
     const audioChunksA = useRef<Blob[]>([]);
     const audioChunksB = useRef<Blob[]>([]);
+    const audioPlayer = useRef<AudioStreamPlayer | null>(null);
 
     useEffect(() => {
         const allKeysProvided = Object.values(apiKeys).every(
@@ -136,8 +141,6 @@ export default function Home() {
             setIsRecordingB(false);
         }
     };
-
-    // Update the handleRecordingComplete function in page.tsx
 
     const handleRecordingComplete = async (blob: Blob, isUserA: boolean) => {
         setIsProcessing(true);
@@ -231,41 +234,58 @@ export default function Home() {
                 fromLang: fromLang,
                 toLang: toLang,
             };
-            // and text-to-speech...
             setMessages((prevMessages) => [...prevMessages, newMessage]);
 
             // Text-to-speech
             const voiceId = getVoiceId(toLang, toGender);
-            const ttsResponse = await fetch("/api/tts", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Accept: "application/octet-stream",
-                },
-                credentials: "include",
-                body: JSON.stringify({
-                    text: translation,
-                    language: toLang,
-                    voiceId: voiceId,
-                    options: {
-                        speed: fromOptions.speed,
-                        emotion: fromOptions.emotion,
-                        sampleRate: 44100,
+            try {
+                // Stop any existing playback
+                if (audioPlayer.current) {
+                    audioPlayer.current.stop();
+                    await audioPlayer.current.close();
+                }
+
+                const ttsResponse = await fetch("/api/tts", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/octet-stream",
                     },
-                }),
-            });
+                    credentials: "include",
+                    body: JSON.stringify({
+                        text: translation,
+                        language: toLang,
+                        voiceId: voiceId,
+                        options: {
+                            speed: fromOptions.speed,
+                            emotion: fromOptions.emotion,
+                            sampleRate: 44100,
+                        },
+                    }),
+                });
 
-            if (!ttsResponse.ok) {
-                const error = await ttsResponse.json();
-                console.error("TTS API error:", error);
-                throw new Error(error.error || "TTS failed");
+                if (!ttsResponse.ok) {
+                    const error = await ttsResponse.json();
+                    console.error("TTS API error:", error);
+                    throw new Error(error.error || "TTS failed");
+                }
+
+                const sampleRate = parseInt(
+                    ttsResponse.headers.get("X-Sample-Rate") || "44100"
+                );
+
+                // Create new audio player
+                audioPlayer.current = new AudioStreamPlayer(sampleRate);
+
+                // Process the audio stream
+                const stream = createAudioStream(ttsResponse);
+                for await (const chunk of processAudioChunks(stream)) {
+                    await audioPlayer.current.playChunk(chunk);
+                }
+            } catch (error) {
+                console.error("Error playing audio:", error);
+                throw error;
             }
-
-            const audioBuffer = await ttsResponse.arrayBuffer();
-            const sampleRate = parseInt(
-                ttsResponse.headers.get("X-Sample-Rate") || "44100"
-            );
-            await playAudioBuffer(audioBuffer, sampleRate);
         } catch (error) {
             console.error("Error processing audio:", error);
             setError("An error occurred. Please try again.");

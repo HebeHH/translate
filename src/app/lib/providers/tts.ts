@@ -5,19 +5,21 @@ export interface TTSOptions {
     sampleRate?: number; // Audio sample rate (default 44100)
 }
 
-export interface TTSResult {
-    audioBuffer: ArrayBuffer;
+export interface TTSMetadata {
     format: 'pcm_f32le'; // We'll always use this format for consistency
     sampleRate: number;
 }
 
+// Changed from returning a Result to returning an AsyncGenerator
 export interface TTSProvider {
     synthesize(
         text: string,
         language: string,
         voiceId: string,
         options?: TTSOptions
-    ): Promise<TTSResult>;
+    ): AsyncGenerator<Uint8Array>;
+
+    getMetadata(options?: TTSOptions): TTSMetadata;
 }
 
 export class TTSError extends Error {

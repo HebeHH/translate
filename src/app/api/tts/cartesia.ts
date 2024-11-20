@@ -2,9 +2,9 @@
 import Cartesia, { EmotionControl } from "@cartesia/cartesia-js";
 import {
     TTSProvider,
-    TTSResult,
     TTSOptions,
     TTSError,
+    TTSMetadata
 } from "@/app/lib/providers/tts";
 
 export class CartesiaTTSProvider implements TTSProvider {
@@ -45,12 +45,19 @@ export class CartesiaTTSProvider implements TTSProvider {
         return [];
     }
 
-    async synthesize(
+    getMetadata(options?: TTSOptions): TTSMetadata {
+        return {
+            format: 'pcm_f32le',
+            sampleRate: options?.sampleRate || 44100
+        };
+    }
+
+    async* synthesize(
         text: string,
         language: string,
         voiceId: string,
         options?: TTSOptions
-    ): Promise<TTSResult> {
+    ): AsyncGenerator<Uint8Array> {
         try {
             const client = this.initializeClient();
             const sampleRate = options?.sampleRate || 44100;
@@ -86,10 +93,6 @@ export class CartesiaTTSProvider implements TTSProvider {
                 transcript: text
             });
 
-            const chunks: ArrayBuffer[] = [];
-            let lastChunkTime = Date.now();
-            const TIMEOUT = 50000; // 50 seconds timeout
-
             try {
                 for await (const message of response.events('message')) {
                     try {
@@ -97,20 +100,15 @@ export class CartesiaTTSProvider implements TTSProvider {
                         console.log("Received message type:", parsedMessage.type);
 
                         if (parsedMessage.type === 'chunk' && parsedMessage.data) {
-                            lastChunkTime = Date.now();
+                            // Convert base64 to Uint8Array
                             const binaryString = atob(parsedMessage.data);
-                            const len = binaryString.length;
-                            const bytes = new Uint8Array(len);
-                            for (let i = 0; i < len; i++) {
+                            const bytes = new Uint8Array(binaryString.length);
+                            for (let i = 0; i < binaryString.length; i++) {
                                 bytes[i] = binaryString.charCodeAt(i);
                             }
-                            chunks.push(bytes.buffer);
+                            yield bytes;
                         } else if (parsedMessage.type === 'done') {
                             break;
-                        }
-
-                        if (Date.now() - lastChunkTime > TIMEOUT) {
-                            throw new TTSError('TTS stream timeout', 'TIMEOUT_ERROR', 'Cartesia');
                         }
                     } catch (error) {
                         console.error('Error processing TTS chunk:', error);
@@ -129,23 +127,6 @@ export class CartesiaTTSProvider implements TTSProvider {
                     console.warn('Error closing websocket:', error);
                 }
             }
-
-            if (chunks.length === 0) {
-                throw new TTSError('No audio data received', 'NO_AUDIO_ERROR', 'Cartesia');
-            }
-
-            console.log('TTS synthesis completed:', {
-                chunks: chunks.length,
-                totalSize: chunks.reduce((acc, chunk) => acc + chunk.byteLength, 0)
-            });
-
-            const concatenated = new Blob(chunks).arrayBuffer();
-
-            return {
-                audioBuffer: await concatenated,
-                format: 'pcm_f32le',
-                sampleRate
-            };
         } catch (error) {
             console.error('TTS error details:', error);
 
