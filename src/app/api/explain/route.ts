@@ -1,16 +1,92 @@
-// app/api/transcribe/route.ts
-import { NextResponse } from 'next/server';
-// Configure the route segment
-export const dynamic = 'force-dynamic'; // Make sure the route is always dynamic
-export const runtime = 'nodejs';        // Use Node.js runtime for file handling
-export const preferredRegion = 'auto';  // Let Vercel pick the best region
+// app/api/explain/route.ts
+import { NextRequest } from 'next/server';
+import { AnthropicExplanationProvider } from './anthropic';
+import { ExplanationError } from '@/app/lib/providers/explain';
+import { validateApiRequest } from '@/app/lib/rate-limit';
 
-// Configure request body size limits for file upload
-export async function POST() {
+// Configure the route segment
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const preferredRegion = 'auto';
+
+// Initialize provider lazily
+let provider: AnthropicExplanationProvider | null = null;
+
+function getProvider() {
+    if (!provider) {
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) {
+            throw new ExplanationError(
+                'Anthropic API key not configured',
+                'CONFIGURATION_ERROR',
+                'Anthropic'
+            );
+        }
+        provider = new AnthropicExplanationProvider(apiKey);
+    }
+    return provider;
+}
+
+export async function POST(request: NextRequest) {
     try {
-        return NextResponse.json({ result: 'Hello, World!' });
+        // Validate the request
+        await validateApiRequest(request);
+
+        // Ensure request is JSON
+        const contentType = request.headers.get('content-type');
+        if (!contentType?.includes('application/json')) {
+            console.error('Invalid content type:', contentType);
+            return Response.json(
+                { error: 'Request must be application/json' },
+                { status: 400 }
+            );
+        }
+
+        // Parse the request body
+        const body = await request.json();
+        const { originalText, translatedText, fromLang, toLang } = body as {
+            originalText: string;
+            translatedText: string;
+            fromLang: string;
+            toLang: string;
+        };
+
+        console.log('Explanation request received:', {
+            fromLang,
+            toLang,
+            originalLength: originalText?.length,
+            translatedLength: translatedText?.length
+        });
+
+        // Validate required fields
+        if (!originalText || !translatedText || !fromLang || !toLang) {
+            return Response.json(
+                { error: 'Missing required fields: originalText, translatedText, fromLang, or toLang' },
+                { status: 400 }
+            );
+        }
+
+        // Call the provider
+        const result = await getProvider().explain(
+            originalText,
+            translatedText,
+            fromLang,
+            toLang
+        );
+
+        return Response.json(result);
     } catch (error) {
-        console.log('error', error)
-        return NextResponse.json({ result: 'Goodbye, World!' });
+        console.error('Explanation error:', error);
+
+        return Response.json(
+            {
+                error: error instanceof ExplanationError ? error.message : 'Internal server error',
+                code: error instanceof ExplanationError ? error.code : 'INTERNAL_ERROR',
+                provider: error instanceof ExplanationError ? error.provider : undefined
+            },
+            {
+                status: error instanceof ExplanationError ? 400 : 500
+            }
+        );
     }
 }

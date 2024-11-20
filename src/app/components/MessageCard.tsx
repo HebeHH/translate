@@ -1,18 +1,16 @@
+// app/components/MessageCard.tsx
 import React, { useState } from "react";
 import { ExplanationModal } from "./ExplanationModal";
 import { Message, TranslationInfo } from "../utils/types";
-import { explainText } from "../utils/explanation";
 
 interface MessageCardProps {
     message: Message;
     language: string;
-    ANTHROPIC_API_KEY: string;
 }
 
 export const MessageCard: React.FC<MessageCardProps> = ({
     message,
     language,
-    ANTHROPIC_API_KEY,
 }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [explanation, setExplanation] = useState<TranslationInfo | null>(
@@ -23,15 +21,37 @@ export const MessageCard: React.FC<MessageCardProps> = ({
     const handleClick = async () => {
         setIsLoading(true);
         setIsModalOpen(true);
-        const result = await explainText(
-            message.original,
-            message.translated,
-            message.fromLang,
-            message.toLang,
-            ANTHROPIC_API_KEY
-        );
-        setExplanation(result);
-        setIsLoading(false);
+
+        try {
+            const response = await fetch("/api/explain", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                },
+                credentials: "include",
+                body: JSON.stringify({
+                    originalText: message.original,
+                    translatedText: message.translated,
+                    fromLang: message.fromLang,
+                    toLang: message.toLang,
+                }),
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                console.error("Explanation API error:", error);
+                throw new Error(error.error || "Failed to get explanation");
+            }
+
+            const result = await response.json();
+            setExplanation(result);
+        } catch (error) {
+            console.error("Error getting explanation:", error);
+            // You might want to show an error message to the user here
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const isOriginal = message.fromLang === language;
