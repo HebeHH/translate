@@ -5,9 +5,6 @@ import LanguageSelector from "./components/LanguageSelector";
 import GenderSelector from "./components/GenderSelector";
 import AudioRecorder from "./components/AudioRecorder";
 import OptionSliders from "./components/OptionSliders";
-// import { transcribeAudio } from "./utils/transcription";
-import { translateText } from "./utils/translation";
-import { textToSpeech, playAudio } from "./utils/tts";
 import {
     AudioStreamPlayer,
     createAudioStream,
@@ -17,20 +14,8 @@ import { voices } from "./data/voices";
 import { Message, Options } from "./utils/types";
 import { MessageCard } from "./components/MessageCard";
 
-type ApiKeys = {
-    ASSEMBLYAI_API_KEY: string;
-    CARTESIA_API_KEY: string;
-    ANTHROPIC_API_KEY: string;
-};
-
 export default function Home() {
     console.log(process.env.SESSION_SECRET_KEY);
-
-    const [apiKeys, setApiKeys] = useState<ApiKeys>({
-        ASSEMBLYAI_API_KEY: "",
-        CARTESIA_API_KEY: "",
-        ANTHROPIC_API_KEY: "",
-    });
     const [showMainContent, setShowMainContent] = useState(false);
 
     const [languageA, setLanguageA] = useState("en");
@@ -62,17 +47,6 @@ export default function Home() {
     const audioChunksA = useRef<Blob[]>([]);
     const audioChunksB = useRef<Blob[]>([]);
     const audioPlayer = useRef<AudioStreamPlayer | null>(null);
-
-    useEffect(() => {
-        const allKeysProvided = Object.values(apiKeys).every(
-            (key) => key !== ""
-        );
-        setShowMainContent(allKeysProvided);
-    }, [apiKeys]);
-
-    const handleApiKeyChange = (key: keyof ApiKeys, value: string) => {
-        setApiKeys((prev) => ({ ...prev, [key]: value }));
-    };
 
     const getVoiceId = (language: string, gender: string) => {
         const voiceOption = voices[language].voiceOptions.find(
@@ -296,32 +270,6 @@ export default function Home() {
         }
     };
 
-    if (!showMainContent) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-violet-900 text-white p-4">
-                <h1 className="text-3xl font-bold mb-8">Enter API Keys</h1>
-                {Object.keys(apiKeys).map((key) => (
-                    <div key={key} className="mb-4 w-full max-w-md">
-                        <label className="block text-sm font-medium mb-2">
-                            {key}:
-                        </label>
-                        <input
-                            type="password"
-                            value={apiKeys[key as keyof ApiKeys]}
-                            onChange={(e) =>
-                                handleApiKeyChange(
-                                    key as keyof ApiKeys,
-                                    e.target.value
-                                )
-                            }
-                            className="w-full px-3 py-2 bg-violet-800 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-300"
-                        />
-                    </div>
-                ))}
-            </div>
-        );
-    }
-
     return (
         <main className="flex flex-col min-h-screen bg-violet-900 text-white p-4 md:p-8">
             <div className="flex flex-col md:flex-row flex-1 space-y-8 md:space-y-0 md:space-x-8">
@@ -356,9 +304,6 @@ export default function Home() {
                                         key={index}
                                         message={msg}
                                         language={language}
-                                        ANTHROPIC_API_KEY={
-                                            apiKeys.ANTHROPIC_API_KEY
-                                        }
                                     />
                                 ))}
                             </div>

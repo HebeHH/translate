@@ -34,7 +34,10 @@ export default function RootLayout({
                     <nav className="container mx-auto px-4 py-1 md:py-2 flex justify-between items-center">
                         <ul className="flex space-x-2 md:space-x-4 items-center">
                             <li className="group">
-                                <Link href="/" className="text-2xl font-gruppo">
+                                <Link
+                                    href="https://www.shebecoding.com"
+                                    className="text-2xl font-gruppo"
+                                >
                                     s
                                     <span className="font-bold text-indigo-700 group-hover:text-fuchsia-600 ">
                                         hebe
