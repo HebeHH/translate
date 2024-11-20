@@ -8,6 +8,7 @@ import OptionSliders from "./components/OptionSliders";
 // import { transcribeAudio } from "./utils/transcription";
 import { translateText } from "./utils/translation";
 import { textToSpeech, playAudio } from "./utils/tts";
+import { playAudioBuffer } from "@/app/lib/audio";
 import { voices } from "./data/voices";
 import { Message, Options } from "./utils/types";
 import { MessageCard } from "./components/MessageCard";
@@ -192,16 +193,36 @@ export default function Home() {
             const transcriptionResult = await transcriptionResponse.json();
             const transcription = transcriptionResult.text;
 
-            // Continue with translation and text-to-speech...
-            const translation = await translateText(
-                transcription,
-                voices[fromLang].name,
-                voices[toLang].name,
-                fromOptions,
-                (isUserA ? genderA : genderB) as "male" | "female",
-                (isUserA ? genderB : genderA) as "male" | "female",
-                apiKeys.ANTHROPIC_API_KEY
-            );
+            // Continue with translation...
+            const translationResponse = await fetch("/api/translate", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                },
+                credentials: "include",
+                body: JSON.stringify({
+                    text: transcription,
+                    fromLang: voices[fromLang].name,
+                    toLang: voices[toLang].name,
+                    options: {
+                        tone: fromOptions.tone,
+                        detail: fromOptions.detail,
+                        emotion: fromOptions.emotion,
+                        fromGender: isUserA ? genderA : genderB,
+                        toGender: isUserA ? genderB : genderA,
+                    },
+                }),
+            });
+
+            if (!translationResponse.ok) {
+                const error = await translationResponse.json();
+                console.error("Translation API error:", error);
+                throw new Error(error.error || "Translation failed");
+            }
+
+            const translationResult = await translationResponse.json();
+            const translation = translationResult.text;
 
             // Update messages
             const newMessage: Message = {
@@ -210,18 +231,41 @@ export default function Home() {
                 fromLang: fromLang,
                 toLang: toLang,
             };
+            // and text-to-speech...
             setMessages((prevMessages) => [...prevMessages, newMessage]);
 
             // Text-to-speech
             const voiceId = getVoiceId(toLang, toGender);
-            const audioBuffer = await textToSpeech(
-                translation,
-                toLang,
-                voiceId,
-                fromOptions,
-                apiKeys.CARTESIA_API_KEY
+            const ttsResponse = await fetch("/api/tts", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/octet-stream",
+                },
+                credentials: "include",
+                body: JSON.stringify({
+                    text: translation,
+                    language: toLang,
+                    voiceId: voiceId,
+                    options: {
+                        speed: fromOptions.speed,
+                        emotion: fromOptions.emotion,
+                        sampleRate: 44100,
+                    },
+                }),
+            });
+
+            if (!ttsResponse.ok) {
+                const error = await ttsResponse.json();
+                console.error("TTS API error:", error);
+                throw new Error(error.error || "TTS failed");
+            }
+
+            const audioBuffer = await ttsResponse.arrayBuffer();
+            const sampleRate = parseInt(
+                ttsResponse.headers.get("X-Sample-Rate") || "44100"
             );
-            playAudio(audioBuffer);
+            await playAudioBuffer(audioBuffer, sampleRate);
         } catch (error) {
             console.error("Error processing audio:", error);
             setError("An error occurred. Please try again.");
