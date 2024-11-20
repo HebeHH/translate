@@ -2,8 +2,8 @@
 import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
+import { logDebug, logError } from './logging';
 
-// Check for session secret at module initialization
 const SECRET_KEY = process.env.SESSION_SECRET_KEY;
 if (!SECRET_KEY) {
     throw new Error('SESSION_SECRET_KEY environment variable is not set');
@@ -12,9 +12,7 @@ if (!SECRET_KEY) {
 const key = new TextEncoder().encode(SECRET_KEY);
 
 export async function createSession(): Promise<string> {
-    // Create a session token that expires in 24 hours
     const token = await new SignJWT({
-        // Add creation timestamp to prevent token reuse
         iat: Math.floor(Date.now() / 1000),
     })
         .setProtectedHeader({ alg: 'HS256' })
@@ -25,71 +23,76 @@ export async function createSession(): Promise<string> {
     return token;
 }
 
-function isLocalhost(host?: string | null): boolean {
-    if (!host) return false;
-    return host.includes('localhost') ||
-        host.includes('127.0.0.1') ||
-        host.includes('[::1]');
+function isValidOrigin(origin: string | null, host: string | null): boolean {
+    logDebug('Checking origin:', { origin, host });
+    if (!origin || !host) return false;
+
+    // Always allow localhost in development
+    if (process.env.NODE_ENV === 'development') {
+        if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+            return true;
+        }
+    }
+
+    try {
+        const originUrl = new URL(origin);
+        const hostName = host.split(':')[0]; // Remove port if present
+
+        // In production, match the domain without considering protocol or port
+        return originUrl.hostname === hostName;
+    } catch {
+        return false;
+    }
 }
 
 export async function verifySession(request: NextRequest): Promise<boolean> {
     try {
-        // First check if request is from our domain
+        // Check origin in a more flexible way
         const origin = request.headers.get('origin');
         const host = request.headers.get('host');
+        const referer = request.headers.get('referer');
 
-        // In development, be more lenient with origin checking
-        if (process.env.NODE_ENV === 'development') {
-            if (!origin || !host) {
-                console.warn('Missing origin or host in development');
-                return false;
-            }
-
-            // Allow requests between localhost ports in development
-            if (isLocalhost(new URL(origin).hostname) && isLocalhost(host.split(':')[0])) {
-                console.log('Allowing localhost development request');
-                return true;
-            }
-        } else {
-            // In production, strictly verify origin matches host
-            if (!origin || !host || !origin.includes(host)) {
-                console.warn('Origin verification failed:', { origin, host });
+        // Allow requests from same domain or when origin is not set (same-origin requests)
+        if (origin && !isValidOrigin(origin, host)) {
+            if (referer && !isValidOrigin(referer, host)) {
+                console.warn('Origin/referer verification failed:', { origin, host, referer });
+                logError('Origin/referer verification failed:', { origin, host, referer });
                 return false;
             }
         }
 
-        // Then verify the session token from either cookies or authorization header
-        let sessionToken: string | undefined;
+        // Get token from either Authorization header or cookie
+        let token: string | undefined;
 
-        // First try to get from authorization header
         const authHeader = request.headers.get('authorization');
         if (authHeader?.startsWith('Bearer ')) {
-            sessionToken = authHeader.substring(7);
+            token = authHeader.substring(7);
         } else {
-            // Fall back to cookies
             const cookieStore = cookies();
-            const tokenCookie = cookieStore.get('session-token');
-            sessionToken = tokenCookie?.value;
+            token = cookieStore.get('session-token')?.value;
         }
 
-        if (!sessionToken) {
+        if (!token) {
             console.warn('No session token found');
+            logError('No session token found');
             return false;
         }
 
         // Verify the token
-        const { payload } = await jwtVerify(sessionToken, key);
+        const { payload } = await jwtVerify(token, key);
 
-        // Check if token is expired (although jose already checks this)
+        // Verify expiration
         const now = Math.floor(Date.now() / 1000);
         if (payload.exp && payload.exp < now) {
             console.warn('Token expired');
+            logError('Token expired');
             return false;
         }
 
         return true;
     } catch (error) {
         console.error('Session verification failed:', error);
+        logError('Session verification failed:', error);
         return false;
     }
 }

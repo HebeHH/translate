@@ -3,64 +3,76 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createSession } from '@/app/lib/auth'
 
+// Helper to check if a request is for the API
+const isApiRoute = (pathname: string) => pathname.startsWith('/api');
+
+// Helper to get domain from request
+function getDomain(req: NextRequest) {
+    const host = req.headers.get('host') || '';
+    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+    return `${protocol}://${host}`;
+}
+
 export async function middleware(request: NextRequest) {
     try {
-        const response = NextResponse.next()
+        const response = NextResponse.next();
 
-        // Get existing session token
-        const existingToken = request.cookies.get('session-token')
+        // Add security headers
+        const headers = {
+            'X-Frame-Options': 'DENY',
+            'X-Content-Type-Options': 'nosniff',
+            'Referrer-Policy': 'origin-when-cross-origin',
+            'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+            'X-Permitted-Cross-Domain-Policies': 'none',
+            'X-DNS-Prefetch-Control': 'off',
+        };
 
-        // If no session token exists or it's expired, create a new one
-        if (!existingToken) {
-            const token = await createSession()
+        Object.entries(headers).forEach(([key, value]) => {
+            response.headers.set(key, value);
+        });
 
-            // Set cookie
-            response.cookies.set({
-                name: 'session-token',
-                value: token,
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'lax', // Changed from 'strict' to 'lax' for better compatibility
-                path: '/',       // Ensure cookie is available for all paths
-                maxAge: 60 * 60 * 24 // 24 hours
-            })
+        // Only handle session for API routes
+        if (isApiRoute(request.nextUrl.pathname)) {
+            // Get existing session token
+            const existingToken = request.cookies.get('session-token');
 
-            // Also set as Authorization header for API routes
-            if (request.nextUrl.pathname.startsWith('/api')) {
-                response.headers.set('Authorization', `Bearer ${token}`)
-            }
-        } else {
-            // If token exists, ensure it's also in Authorization header for API routes
-            if (request.nextUrl.pathname.startsWith('/api')) {
-                response.headers.set('Authorization', `Bearer ${existingToken.value}`)
+            if (!existingToken) {
+                console.log('Creating new session token');
+                const token = await createSession();
+                const domain = getDomain(request);
+
+                // Set cookie with appropriate domain settings
+                response.cookies.set({
+                    name: 'session-token',
+                    value: token,
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: 'lax',
+                    path: '/',
+                    domain: new URL(domain).hostname
+                });
+
+                // Also set Authorization header
+                response.headers.set('Authorization', `Bearer ${token}`);
+            } else {
+                // If token exists, copy it to Authorization header
+                response.headers.set('Authorization', `Bearer ${existingToken.value}`);
             }
         }
 
-        // Add security headers
-        response.headers.set('X-Frame-Options', 'DENY')
-        response.headers.set('X-Content-Type-Options', 'nosniff')
-        response.headers.set('Referrer-Policy', 'origin-when-cross-origin')
-        response.headers.set(
-            'Strict-Transport-Security',
-            'max-age=31536000; includeSubDomains'
-        )
-
-        return response
+        return response;
     } catch (error) {
-        console.error('Middleware error:', error)
-        return NextResponse.next()
+        console.error('Middleware error:', error);
+        return NextResponse.next();
     }
 }
 
-// Configure middleware to run on all routes
+// Configure middleware matching
 export const config = {
     matcher: [
-        /*
-         * Match all request paths except for the ones starting with:
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         */
+        // Match all API routes
+        '/api/:path*',
+        // Match all page routes except static files
         '/((?!_next/static|_next/image|favicon.ico).*)',
     ],
-}
+};
