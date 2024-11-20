@@ -1,10 +1,12 @@
 // app/lib/logging.ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export function logDebug(...args: any[]) {
     if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
         console.log('[DEBUG]', ...args);
     }
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export function logError(...args: any[]) {
     console.error('[ERROR]', ...args);
 }
