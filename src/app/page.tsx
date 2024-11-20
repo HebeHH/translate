@@ -5,7 +5,7 @@ import LanguageSelector from "./components/LanguageSelector";
 import GenderSelector from "./components/GenderSelector";
 import AudioRecorder from "./components/AudioRecorder";
 import OptionSliders from "./components/OptionSliders";
-import { transcribeAudio } from "./utils/transcription";
+// import { transcribeAudio } from "./utils/transcription";
 import { translateText } from "./utils/translation";
 import { textToSpeech, playAudio } from "./utils/tts";
 import { voices } from "./data/voices";
@@ -19,6 +19,8 @@ type ApiKeys = {
 };
 
 export default function Home() {
+    console.log(process.env.SESSION_SECRET_KEY);
+
     const [apiKeys, setApiKeys] = useState<ApiKeys>({
         ASSEMBLYAI_API_KEY: "",
         CARTESIA_API_KEY: "",
@@ -134,6 +136,8 @@ export default function Home() {
         }
     };
 
+    // Update the handleRecordingComplete function in page.tsx
+
     const handleRecordingComplete = async (blob: Blob, isUserA: boolean) => {
         setIsProcessing(true);
         setError("");
@@ -142,20 +146,53 @@ export default function Home() {
         } else {
             setIsLoadingB(true);
         }
+
         try {
             const fromLang = isUserA ? languageA : languageB;
             const toLang = isUserA ? languageB : languageA;
             const toGender = isUserA ? genderA : genderB;
             const fromOptions = isUserA ? optionsA : optionsB;
 
-            // Transcribe
-            const transcription = await transcribeAudio(
-                blob,
-                fromLang,
-                apiKeys.ASSEMBLYAI_API_KEY
-            );
+            // Create form data for the audio file
+            const formData = new FormData();
+            formData.append("audio", blob);
+            formData.append("language_code", fromLang);
 
-            // Translate
+            // Get the session token from cookies
+            const sessionToken = document.cookie
+                .split("; ")
+                .find((row) => row.startsWith("session-token="))
+                ?.split("=")[1];
+
+            console.log("Preparing audio for transcription:", {
+                blobType: blob.type,
+                blobSize: blob.size,
+                fromLang,
+                hasSessionToken: !!sessionToken,
+            });
+            // Call our new API endpoint
+            const transcriptionResponse = await fetch("/api/transcribe", {
+                method: "POST",
+                body: formData,
+                credentials: "include", // Changed from 'same-origin' to 'include'
+                headers: {
+                    Accept: "application/json",
+                    ...(sessionToken && {
+                        Authorization: `Bearer ${sessionToken}`,
+                    }),
+                },
+            });
+
+            if (!transcriptionResponse.ok) {
+                const error = await transcriptionResponse.json();
+                console.error("Transcription API error:", error);
+                throw new Error(error.error || "Transcription failed");
+            }
+
+            const transcriptionResult = await transcriptionResponse.json();
+            const transcription = transcriptionResult.text;
+
+            // Continue with translation and text-to-speech...
             const translation = await translateText(
                 transcription,
                 voices[fromLang].name,
