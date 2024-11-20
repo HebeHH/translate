@@ -33,12 +33,13 @@ export async function textToSpeech(text: string, language: string, voiceId: stri
 
     const chunks: ArrayBuffer[] = [];
     let lastChunkTime = Date.now();
-    const TIMEOUT = 5000; // 5 seconds timeout
+    const TIMEOUT = 50000; // 50 seconds timeout
 
     const messageHandler = async () => {
         for await (const message of response.events('message')) {
             try {
                 const parsedMessage = JSON.parse(message);
+                console.log("Received message from Cartesia:", parsedMessage);
                 if (parsedMessage.type === 'chunk' && parsedMessage.data) {
                     lastChunkTime = Date.now();
                     const binaryString = atob(parsedMessage.data);
