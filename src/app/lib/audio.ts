@@ -44,6 +44,7 @@ export class AudioStreamPlayer {
             try {
                 source.stop();
             } catch (e) {
+                console.log(e)
                 // Ignore errors from already stopped sources
             }
         });

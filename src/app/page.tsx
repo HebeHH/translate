@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import LanguageSelector from "./components/LanguageSelector";
 import GenderSelector from "./components/GenderSelector";
 import AudioRecorder from "./components/AudioRecorder";
@@ -16,7 +16,6 @@ import { MessageCard } from "./components/MessageCard";
 
 export default function Home() {
     console.log(process.env.SESSION_SECRET_KEY);
-    const [showMainContent, setShowMainContent] = useState(false);
 
     const [languageA, setLanguageA] = useState("en");
     const [languageB, setLanguageB] = useState("fr");
