@@ -3,13 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AnthropicTranslationProvider } from './anthropic';
 import { TranslationError, TranslationOptions } from '@/app/lib/providers/translate';
 import { validateApiRequest } from '@/app/lib/rate-limit';
+import { logApiCall } from '@/app/lib/db-logger';
 
-// Configure the route segment
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const preferredRegion = 'auto';
 
-// Initialize provider lazily
 let provider: AnthropicTranslationProvider | null = null;
 
 function getProvider() {
@@ -29,10 +28,8 @@ function getProvider() {
 
 export async function POST(request: NextRequest) {
     try {
-        // Validate the request
         await validateApiRequest(request);
 
-        // Ensure request is JSON
         const contentType = request.headers.get('content-type');
         if (!contentType?.includes('application/json')) {
             console.error('Invalid content type:', contentType);
@@ -42,7 +39,6 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Parse the request body
         const body = await request.json();
         const { text, fromLang, toLang, options } = body as {
             text: string;
@@ -51,14 +47,6 @@ export async function POST(request: NextRequest) {
             options?: TranslationOptions;
         };
 
-        console.log('Translation request received:', {
-            fromLang,
-            toLang,
-            textLength: text?.length,
-            hasOptions: !!options
-        });
-
-        // Validate required fields
         if (!text || !fromLang || !toLang) {
             return NextResponse.json(
                 { error: 'Missing required fields: text, fromLang, or toLang' },
@@ -66,14 +54,10 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Call the provider
         const result = await getProvider().translate(text, fromLang, toLang, options);
 
-        console.log('Translation successful:', {
-            originalLength: text.length,
-            translatedLength: result.text.length,
-            confidence: result.confidence
-        });
+        // Log the API call asynchronously - don't await
+        logApiCall('translate', request, text, result.text);
 
         return NextResponse.json(result);
     } catch (error) {

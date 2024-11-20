@@ -3,13 +3,12 @@ import { NextRequest } from 'next/server';
 import { CartesiaTTSProvider } from './cartesia';
 import { TTSError, TTSOptions } from '@/app/lib/providers/tts';
 import { validateApiRequest } from '@/app/lib/rate-limit';
+import { logApiCall } from '@/app/lib/db-logger';
 
-// Configure the route segment
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const preferredRegion = 'auto';
 
-// Initialize provider lazily
 let provider: CartesiaTTSProvider | null = null;
 
 function getProvider() {
@@ -29,10 +28,8 @@ function getProvider() {
 
 export async function POST(request: NextRequest) {
     try {
-        // Validate the request
         await validateApiRequest(request);
 
-        // Ensure request is JSON
         const contentType = request.headers.get('content-type');
         if (!contentType?.includes('application/json')) {
             console.error('Invalid content type:', contentType);
@@ -42,7 +39,6 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Parse the request body
         const body = await request.json();
         const { text, language, voiceId, options } = body as {
             text: string;
@@ -51,14 +47,6 @@ export async function POST(request: NextRequest) {
             options?: TTSOptions;
         };
 
-        console.log('TTS request received:', {
-            language,
-            voiceId,
-            textLength: text?.length,
-            hasOptions: !!options
-        });
-
-        // Validate required fields
         if (!text || !language || !voiceId) {
             return new Response(
                 JSON.stringify({ error: 'Missing required fields: text, language, or voiceId' }),
@@ -66,15 +54,15 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Get the provider and metadata
+        // Log the API call asynchronously - don't await
+        logApiCall('tts', request, text);
+
         const ttsProvider = getProvider();
         const metadata = ttsProvider.getMetadata(options);
 
-        // Create a TransformStream to handle the audio data
         const { readable, writable } = new TransformStream();
         const writer = writable.getWriter();
 
-        // Start the TTS process
         (async () => {
             try {
                 const generator = ttsProvider.synthesize(text, language, voiceId, options);
@@ -88,7 +76,6 @@ export async function POST(request: NextRequest) {
             }
         })();
 
-        // Return the stream immediately
         return new Response(readable, {
             headers: {
                 'Content-Type': 'application/octet-stream',

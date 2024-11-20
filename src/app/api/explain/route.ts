@@ -3,13 +3,12 @@ import { NextRequest } from 'next/server';
 import { AnthropicExplanationProvider } from './anthropic';
 import { ExplanationError } from '@/app/lib/providers/explain';
 import { validateApiRequest } from '@/app/lib/rate-limit';
+import { logApiCall } from '@/app/lib/db-logger';
 
-// Configure the route segment
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const preferredRegion = 'auto';
 
-// Initialize provider lazily
 let provider: AnthropicExplanationProvider | null = null;
 
 function getProvider() {
@@ -29,10 +28,8 @@ function getProvider() {
 
 export async function POST(request: NextRequest) {
     try {
-        // Validate the request
         await validateApiRequest(request);
 
-        // Ensure request is JSON
         const contentType = request.headers.get('content-type');
         if (!contentType?.includes('application/json')) {
             console.error('Invalid content type:', contentType);
@@ -42,7 +39,6 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Parse the request body
         const body = await request.json();
         const { originalText, translatedText, fromLang, toLang } = body as {
             originalText: string;
@@ -51,14 +47,6 @@ export async function POST(request: NextRequest) {
             toLang: string;
         };
 
-        console.log('Explanation request received:', {
-            fromLang,
-            toLang,
-            originalLength: originalText?.length,
-            translatedLength: translatedText?.length
-        });
-
-        // Validate required fields
         if (!originalText || !translatedText || !fromLang || !toLang) {
             return Response.json(
                 { error: 'Missing required fields: originalText, translatedText, fromLang, or toLang' },
@@ -66,13 +54,18 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Call the provider
         const result = await getProvider().explain(
             originalText,
             translatedText,
             fromLang,
             toLang
         );
+
+        // Log the API call asynchronously - don't await
+        // Combine original and translated text for input, and stringify the explanation result for output
+        const inputText = `Original: ${originalText}\nTranslated: ${translatedText}`;
+        const outputText = JSON.stringify(result);
+        logApiCall('explain', request, inputText, outputText);
 
         return Response.json(result);
     } catch (error) {

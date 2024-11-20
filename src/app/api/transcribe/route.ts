@@ -3,13 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AssemblyAIProvider } from './assemblyai';
 import { TranscriptionError } from '@/app/lib/providers/transcribe';
 import { validateApiRequest } from '@/app/lib/rate-limit';
+import { logApiCall } from '@/app/lib/db-logger';
 
-// Configure the route segment
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const preferredRegion = 'auto';
 
-// Initialize provider lazily
 let provider: AssemblyAIProvider | null = null;
 
 function getProvider() {
@@ -29,10 +28,8 @@ function getProvider() {
 
 export async function POST(request: NextRequest) {
     try {
-        // Validate the request
         await validateApiRequest(request);
 
-        // Ensure request is multipart/form-data
         const contentType = request.headers.get('content-type');
         if (!contentType?.includes('multipart/form-data')) {
             console.error('Invalid content type:', contentType);
@@ -42,19 +39,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        console.log('Processing form data from request...');
-
-        // Parse the form data
         const formData = await request.formData();
         const audioFile = formData.get('audio') as Blob | null;
         const languageCode = formData.get('language_code') as string | null;
-
-        console.log('Form data processed:', {
-            hasAudioFile: !!audioFile,
-            audioFileType: audioFile?.type,
-            audioFileSize: audioFile?.size,
-            languageCode
-        });
 
         if (!audioFile) {
             return NextResponse.json(
@@ -63,16 +50,12 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Call the provider
         const result = await getProvider().transcribe(audioFile, {
             language_code: languageCode || undefined,
         });
 
-        console.log('Transcription successful:', {
-            textLength: result.text.length,
-            language: result.language,
-            confidence: result.confidence
-        });
+        // Log the API call asynchronously - don't await
+        logApiCall('transcribe', request, undefined, result.text);
 
         return NextResponse.json(result);
     } catch (error) {
