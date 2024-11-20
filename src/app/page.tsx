@@ -270,7 +270,7 @@ export default function Home() {
     };
 
     return (
-        <main className="flex flex-col min-h-[95vh] bg-violet-900 text-white p-4 md:p-8">
+        <main className="flex flex-col min-h-[96vh] bg-violet-900 text-white p-4 md:p-8">
             <div className="flex flex-col md:flex-row flex-1 space-y-8 md:space-y-0 md:space-x-8">
                 {["A", "B"].map((user) => {
                     const isUserA = user === "A";
