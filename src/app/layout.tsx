@@ -18,8 +18,34 @@ const geistMono = localFont({
 export const metadata: Metadata = {
     title: "shebetalking",
     description: "Translation by shebecoding",
+    metadataBase: new URL("https://shebetalking.shebecoding.com"),
+    openGraph: {
+        title: "shebetalking",
+        description: "Translation by shebecoding",
+        url: "https://shebetalking.shebecoding.com",
+        siteName: "shebetalking",
+        images: [
+            {
+                url: "/socialMetadataImage.png",
+                width: 1200,
+                height: 600,
+                alt: "shebetalking social preview",
+            },
+        ],
+        locale: "en_US",
+        type: "website",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "shebetalking",
+        description: "Translation by shebecoding",
+        images: ["/socialMetadataImage.png"],
+    },
+    robots: {
+        index: true,
+        follow: true,
+    },
 };
-
 export default function RootLayout({
     children,
 }: Readonly<{
