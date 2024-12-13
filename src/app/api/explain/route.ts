@@ -1,5 +1,5 @@
 // app/api/explain/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { AnthropicExplanationProvider } from './anthropic';
 import { ExplanationError } from '@/app/lib/providers/explain';
 import { validateApiRequest } from '@/app/lib/rate-limit';
