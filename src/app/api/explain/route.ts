@@ -1,5 +1,5 @@
 // app/api/explain/route.ts
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { AnthropicExplanationProvider } from './anthropic';
 import { ExplanationError } from '@/app/lib/providers/explain';
 import { validateApiRequest } from '@/app/lib/rate-limit';
@@ -26,16 +26,34 @@ function getProvider() {
     return provider;
 }
 
+function updateTokenCookies(response: Response, newToken: string | undefined) {
+    if (newToken) {
+        // Add cookie to response
+        const cookieValue = `session-token=${newToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${24 * 60 * 60}`;
+        response.headers.append('Set-Cookie', cookieValue);
+
+        // Add Authorization header
+        response.headers.set('Authorization', `Bearer ${newToken}`);
+    }
+    return response;
+}
+
 export async function POST(request: NextRequest) {
     try {
-        await validateApiRequest(request);
+        const newToken = await validateApiRequest(request);
 
         const contentType = request.headers.get('content-type');
         if (!contentType?.includes('application/json')) {
             console.error('Invalid content type:', contentType);
-            return Response.json(
-                { error: 'Request must be application/json' },
-                { status: 400 }
+            return updateTokenCookies(
+                new Response(
+                    JSON.stringify({ error: 'Request must be application/json' }),
+                    {
+                        status: 400,
+                        headers: { 'Content-Type': 'application/json' }
+                    }
+                ),
+                newToken
             );
         }
 
@@ -48,9 +66,17 @@ export async function POST(request: NextRequest) {
         };
 
         if (!originalText || !translatedText || !fromLang || !toLang) {
-            return Response.json(
-                { error: 'Missing required fields: originalText, translatedText, fromLang, or toLang' },
-                { status: 400 }
+            return updateTokenCookies(
+                new Response(
+                    JSON.stringify({
+                        error: 'Missing required fields: originalText, translatedText, fromLang, or toLang'
+                    }),
+                    {
+                        status: 400,
+                        headers: { 'Content-Type': 'application/json' }
+                    }
+                ),
+                newToken
             );
         }
 
@@ -62,24 +88,37 @@ export async function POST(request: NextRequest) {
         );
 
         // Log the API call asynchronously - don't await
-        // Combine original and translated text for input, and stringify the explanation result for output
         const inputText = `Original: ${originalText}\nTranslated: ${translatedText}`;
         const outputText = JSON.stringify(result);
         logApiCall('explain', request, inputText, outputText);
 
-        return Response.json(result);
+        // Create and return response with token if needed
+        return updateTokenCookies(
+            new Response(
+                JSON.stringify(result),
+                {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                }
+            ),
+            newToken
+        );
     } catch (error) {
         console.error('Explanation error:', error);
 
-        return Response.json(
-            {
-                error: error instanceof ExplanationError ? error.message : 'Internal server error',
-                code: error instanceof ExplanationError ? error.code : 'INTERNAL_ERROR',
-                provider: error instanceof ExplanationError ? error.provider : undefined
-            },
-            {
-                status: error instanceof ExplanationError ? 400 : 500
-            }
+        return updateTokenCookies(
+            new Response(
+                JSON.stringify({
+                    error: error instanceof ExplanationError ? error.message : 'Internal server error',
+                    code: error instanceof ExplanationError ? error.code : 'INTERNAL_ERROR',
+                    provider: error instanceof ExplanationError ? error.provider : undefined
+                }),
+                {
+                    status: error instanceof ExplanationError ? 400 : 500,
+                    headers: { 'Content-Type': 'application/json' }
+                }
+            ),
+            undefined
         );
     }
 }

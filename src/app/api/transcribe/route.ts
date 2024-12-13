@@ -5,10 +5,12 @@ import { TranscriptionError } from '@/app/lib/providers/transcribe';
 import { validateApiRequest } from '@/app/lib/rate-limit';
 import { logApiCall } from '@/app/lib/db-logger';
 
+// Configure the route segment
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const preferredRegion = 'auto';
 
+// Initialize provider lazily
 let provider: AssemblyAIProvider | null = null;
 
 function getProvider() {
@@ -28,8 +30,10 @@ function getProvider() {
 
 export async function POST(request: NextRequest) {
     try {
-        await validateApiRequest(request);
+        // Validate the request and get new token if needed
+        const newToken = await validateApiRequest(request);
 
+        // Ensure request is multipart/form-data
         const contentType = request.headers.get('content-type');
         if (!contentType?.includes('multipart/form-data')) {
             console.error('Invalid content type:', contentType);
@@ -39,9 +43,17 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Parse the form data
         const formData = await request.formData();
         const audioFile = formData.get('audio') as Blob | null;
         const languageCode = formData.get('language_code') as string | null;
+
+        console.log('Form data processed:', {
+            hasAudioFile: !!audioFile,
+            audioFileType: audioFile?.type,
+            audioFileSize: audioFile?.size,
+            languageCode
+        });
 
         if (!audioFile) {
             return NextResponse.json(
@@ -50,6 +62,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Call the provider
         const result = await getProvider().transcribe(audioFile, {
             language_code: languageCode || undefined,
         });
@@ -57,7 +70,24 @@ export async function POST(request: NextRequest) {
         // Log the API call asynchronously - don't await
         logApiCall('transcribe', request, undefined, result.text);
 
-        return NextResponse.json(result);
+        // Create the response
+        const response = NextResponse.json(result);
+
+        // If we got a new token, set it in the response
+        if (newToken) {
+            response.cookies.set({
+                name: 'session-token',
+                value: newToken,
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/',
+                maxAge: 24 * 60 * 60 // 24 hours
+            });
+            response.headers.set('Authorization', `Bearer ${newToken}`);
+        }
+
+        return response;
     } catch (error) {
         console.error('Transcription error:', error);
 

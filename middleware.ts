@@ -1,7 +1,7 @@
 // middleware.ts
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { createSession } from '@/app/lib/auth'
+import { createSession } from './src/app/lib/auth'
 
 // Helper to check if a request is for the API
 const isApiRoute = (pathname: string) => pathname.startsWith('/api');
@@ -11,6 +11,23 @@ function getDomain(req: NextRequest) {
     const host = req.headers.get('host') || '';
     const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
     return `${protocol}://${host}`;
+}
+
+// Helper to set session token in response
+function setSessionToken(response: NextResponse, token: string, domain: string) {
+    response.cookies.set({
+        name: 'session-token',
+        value: token,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        domain: new URL(domain).hostname,
+        // Set max age to 24 hours
+        maxAge: 24 * 60 * 60
+    });
+
+    response.headers.set('Authorization', `Bearer ${token}`);
 }
 
 export async function middleware(request: NextRequest) {
@@ -35,28 +52,12 @@ export async function middleware(request: NextRequest) {
         if (isApiRoute(request.nextUrl.pathname)) {
             // Get existing session token
             const existingToken = request.cookies.get('session-token');
+            const domain = getDomain(request);
 
             if (!existingToken) {
                 console.log('Creating new session token');
                 const token = await createSession();
-                const domain = getDomain(request);
-
-                // Set cookie with appropriate domain settings
-                response.cookies.set({
-                    name: 'session-token',
-                    value: token,
-                    httpOnly: true,
-                    secure: process.env.NODE_ENV === 'production',
-                    sameSite: 'lax',
-                    path: '/',
-                    domain: new URL(domain).hostname
-                });
-
-                // Also set Authorization header
-                response.headers.set('Authorization', `Bearer ${token}`);
-            } else {
-                // If token exists, copy it to Authorization header
-                response.headers.set('Authorization', `Bearer ${existingToken.value}`);
+                setSessionToken(response, token, domain);
             }
         }
 
@@ -70,9 +71,7 @@ export async function middleware(request: NextRequest) {
 // Configure middleware matching
 export const config = {
     matcher: [
-        // Match all API routes
         '/api/:path*',
-        // Match all page routes except static files
         '/((?!_next/static|_next/image|favicon.ico).*)',
     ],
 };

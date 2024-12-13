@@ -2,7 +2,6 @@
 import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
-import { logDebug, logError } from './logging';
 
 const SECRET_KEY = process.env.SESSION_SECRET_KEY;
 if (!SECRET_KEY) {
@@ -11,20 +10,38 @@ if (!SECRET_KEY) {
 
 const key = new TextEncoder().encode(SECRET_KEY);
 
+// Helper to get current timestamp in seconds
+const getCurrentTimestamp = () => Math.floor(Date.now() / 1000);
+
 export async function createSession(): Promise<string> {
+    const now = getCurrentTimestamp();
+
     const token = await new SignJWT({
-        iat: Math.floor(Date.now() / 1000),
+        iat: now,
+        // Set expiration to 24 hours from now
+        exp: now + (24 * 60 * 60),
     })
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
-        .setExpirationTime('24h')
         .sign(key);
 
     return token;
 }
 
+// Function to check if token needs renewal (e.g., if it expires in less than 1 hour)
+async function shouldRenewToken(token: string): Promise<boolean> {
+    try {
+        const { payload } = await jwtVerify(token, key);
+        const now = getCurrentTimestamp();
+        const oneHour = 60 * 60;
+
+        return payload.exp ? (payload.exp - now) < oneHour : false;
+    } catch {
+        return true;
+    }
+}
+
 function isValidOrigin(origin: string | null, host: string | null): boolean {
-    logDebug('Checking origin:', { origin, host });
     if (!origin || !host) return false;
 
     // Always allow localhost in development
@@ -45,7 +62,7 @@ function isValidOrigin(origin: string | null, host: string | null): boolean {
     }
 }
 
-export async function verifySession(request: NextRequest): Promise<boolean> {
+export async function verifySession(request: NextRequest): Promise<{ isValid: boolean; newToken?: string }> {
     try {
         // Check origin in a more flexible way
         const origin = request.headers.get('origin');
@@ -56,8 +73,7 @@ export async function verifySession(request: NextRequest): Promise<boolean> {
         if (origin && !isValidOrigin(origin, host)) {
             if (referer && !isValidOrigin(referer, host)) {
                 console.warn('Origin/referer verification failed:', { origin, host, referer });
-                logError('Origin/referer verification failed:', { origin, host, referer });
-                return false;
+                return { isValid: false };
             }
         }
 
@@ -74,26 +90,24 @@ export async function verifySession(request: NextRequest): Promise<boolean> {
 
         if (!token) {
             console.warn('No session token found');
-            logError('No session token found');
-            return false;
+            return { isValid: false };
         }
 
         // Verify the token
-        const { payload } = await jwtVerify(token, key);
+        await jwtVerify(token, key);
 
-        // Verify expiration
-        const now = Math.floor(Date.now() / 1000);
-        if (payload.exp && payload.exp < now) {
-            console.warn('Token expired');
-            logError('Token expired');
-            return false;
+        // Check if token needs renewal
+        const needsRenewal = await shouldRenewToken(token);
+        if (needsRenewal) {
+            console.log('Token needs renewal');
+            const newToken = await createSession();
+            return { isValid: true, newToken };
         }
 
-        return true;
+        return { isValid: true };
     } catch (error) {
         console.error('Session verification failed:', error);
-        logError('Session verification failed:', error);
-        return false;
+        return { isValid: false };
     }
 }
 
@@ -104,10 +118,12 @@ export class AuthError extends Error {
     }
 }
 
-export async function validateRequest(request: NextRequest): Promise<void> {
-    const isValid = await verifySession(request);
+export async function validateRequest(request: NextRequest): Promise<string | undefined> {
+    const { isValid, newToken } = await verifySession(request);
 
     if (!isValid) {
         throw new AuthError();
     }
+
+    return newToken;
 }

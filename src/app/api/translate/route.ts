@@ -26,9 +26,27 @@ function getProvider() {
     return provider;
 }
 
+function updateTokenCookies(response: NextResponse, newToken: string | undefined) {
+    // If we got a new token, set it in the response
+    if (newToken) {
+        response.cookies.set({
+            name: 'session-token',
+            value: newToken,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 24 * 60 * 60 // 24 hours
+        });
+        response.headers.set('Authorization', `Bearer ${newToken}`);
+    }
+
+    return response;
+}
+
 export async function POST(request: NextRequest) {
     try {
-        await validateApiRequest(request);
+        const newToken = await validateApiRequest(request);
 
         const contentType = request.headers.get('content-type');
         if (!contentType?.includes('application/json')) {
@@ -48,10 +66,10 @@ export async function POST(request: NextRequest) {
         };
 
         if (!text || !fromLang || !toLang) {
-            return NextResponse.json(
+            return updateTokenCookies(NextResponse.json(
                 { error: 'Missing required fields: text, fromLang, or toLang' },
                 { status: 400 }
-            );
+            ), newToken);
         }
 
         const result = await getProvider().translate(text, fromLang, toLang, options);
@@ -59,7 +77,7 @@ export async function POST(request: NextRequest) {
         // Log the API call asynchronously - don't await
         logApiCall('translate', request, text, result.text);
 
-        return NextResponse.json(result);
+        return updateTokenCookies(NextResponse.json(result), newToken);
     } catch (error) {
         console.error('Translation error:', error);
 

@@ -75,9 +75,7 @@ export async function checkRateLimit(request: NextRequest): Promise<void> {
 }
 
 // Middleware helper that combines auth and rate limiting
-export async function validateApiRequest(request: NextRequest): Promise<void> {
-    await Promise.all([
-        validateRequest(request),
-        checkRateLimit(request)
-    ])
+export async function validateApiRequest(request: NextRequest): Promise<string | undefined> {
+    await checkRateLimit(request);
+    return await validateRequest(request); // This now returns the new token if one was generated
 }

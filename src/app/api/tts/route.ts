@@ -28,7 +28,7 @@ function getProvider() {
 
 export async function POST(request: NextRequest) {
     try {
-        await validateApiRequest(request);
+        const newToken = await validateApiRequest(request);
 
         const contentType = request.headers.get('content-type');
         if (!contentType?.includes('application/json')) {
@@ -76,7 +76,8 @@ export async function POST(request: NextRequest) {
             }
         })();
 
-        return new Response(readable, {
+        // Create response with the audio stream
+        const response = new Response(readable, {
             headers: {
                 'Content-Type': 'application/octet-stream',
                 'Transfer-Encoding': 'chunked',
@@ -84,6 +85,18 @@ export async function POST(request: NextRequest) {
                 'X-Audio-Format': metadata.format
             }
         });
+
+        // If we have a new token, add it to the response headers
+        if (newToken) {
+            // Add cookie to response
+            const cookieValue = `session-token=${newToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${24 * 60 * 60}`;
+            response.headers.append('Set-Cookie', cookieValue);
+
+            // Add Authorization header
+            response.headers.set('Authorization', `Bearer ${newToken}`);
+        }
+
+        return response;
     } catch (error) {
         console.error('TTS error:', error);
 
