@@ -135,12 +135,26 @@ export default function Home() {
             formData.append("audio", blob);
             formData.append("language_code", fromLang);
 
-            // Get the session token from cookies
+            // Add this function to check token expiration
+            const isTokenExpired = (token: string): boolean => {
+                try {
+                    const payload = JSON.parse(atob(token.split(".")[1]));
+                    return payload.exp * 1000 < Date.now();
+                } catch {
+                    return true;
+                }
+            };
+
+            // Then in your code
             const sessionToken = document.cookie
                 .split("; ")
                 .find((row) => row.startsWith("session-token="))
                 ?.split("=")[1];
 
+            if (sessionToken && isTokenExpired(sessionToken)) {
+                document.cookie =
+                    "session-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            }
             console.log("Preparing audio for transcription:", {
                 blobType: blob.type,
                 blobSize: blob.size,
