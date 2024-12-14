@@ -138,8 +138,21 @@ export default function Home() {
             // Add this function to check token expiration
             const isTokenExpired = (token: string): boolean => {
                 try {
+                    console.log("checking token expiration:");
                     const payload = JSON.parse(atob(token.split(".")[1]));
-                    return payload.exp * 1000 < Date.now();
+                    console.log("Token payload:", payload);
+                    console.log(
+                        "Token expiration:",
+                        new Date(payload.exp * 1000)
+                    );
+                    console.log("Token expiration:", payload.exp);
+                    console.log(
+                        "Token expiration:",
+                        new Date(payload.exp * 1000)
+                    );
+                    console.log("Current time:", Date.now());
+                    console.log("Current time:", new Date(Date.now()));
+                    return (payload.exp + 120) * 1000 < Date.now();
                 } catch {
                     return true;
                 }
@@ -151,7 +164,10 @@ export default function Home() {
                 .find((row) => row.startsWith("session-token="))
                 ?.split("=")[1];
 
-            if (sessionToken && isTokenExpired(sessionToken)) {
+            console.log("Session token:", sessionToken);
+
+            if (!sessionToken || isTokenExpired(sessionToken)) {
+                console.log("Session token is missing or expired");
                 document.cookie =
                     "session-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             }
