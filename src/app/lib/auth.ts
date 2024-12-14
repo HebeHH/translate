@@ -25,6 +25,8 @@ export async function createSession(): Promise<string> {
         .setIssuedAt()
         .sign(key);
 
+    console.log('New session token created', now, now + (24 * 60 * 60));
+
     return token;
 }
 
