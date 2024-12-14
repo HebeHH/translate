@@ -16,13 +16,12 @@ const getCurrentTimestamp = () => Math.floor(Date.now() / 1000);
 export async function createSession(): Promise<string> {
     const now = getCurrentTimestamp();
 
-    const token = await new SignJWT({
-        iat: now,
-        // Set expiration to 24 hours from now
-        exp: now + (24 * 60 * 60),
-    })
+    // Create a session token that expires in 24 hours
+    const token = await new SignJWT({})
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
+        .setExpirationTime('24h') // Let jose handle the expiration calculation
+        .setNotBefore(now) // Token cannot be used before current time
         .sign(key);
 
     return token;
@@ -31,12 +30,16 @@ export async function createSession(): Promise<string> {
 // Function to check if token needs renewal (e.g., if it expires in less than 1 hour)
 async function shouldRenewToken(token: string): Promise<boolean> {
     try {
-        const { payload } = await jwtVerify(token, key);
+        const { payload } = await jwtVerify(token, key, {
+            currentDate: new Date() // Use current date for validation
+        });
+
         const now = getCurrentTimestamp();
         const oneHour = 60 * 60;
 
         return payload.exp ? (payload.exp - now) < oneHour : false;
-    } catch {
+    } catch (error) {
+        console.error('Token validation error:', error);
         return true;
     }
 }
@@ -69,6 +72,8 @@ export async function verifySession(request: NextRequest): Promise<{ isValid: bo
         const host = request.headers.get('host');
         const referer = request.headers.get('referer');
 
+        console.log('Checking origin:', { origin, host, referer });
+
         // Allow requests from same domain or when origin is not set (same-origin requests)
         if (origin && !isValidOrigin(origin, host)) {
             if (referer && !isValidOrigin(referer, host)) {
@@ -93,13 +98,20 @@ export async function verifySession(request: NextRequest): Promise<{ isValid: bo
             return { isValid: false };
         }
 
-        // Verify the token
-        await jwtVerify(token, key);
+        // Verify the token with current time
+        try {
+            await jwtVerify(token, key, {
+                currentDate: new Date() // Explicitly provide current time
+            });
+        } catch (error) {
+            console.error('Token verification failed:', error);
+            return { isValid: false };
+        }
 
         // Check if token needs renewal
         const needsRenewal = await shouldRenewToken(token);
         if (needsRenewal) {
-            console.log('Token needs renewal');
+            console.log('Token needs renewal, creating new token');
             const newToken = await createSession();
             return { isValid: true, newToken };
         }
